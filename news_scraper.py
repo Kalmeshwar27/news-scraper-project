@@ -17,12 +17,12 @@ for article in data.get("results", []):
     link = article.get("link") or "N/A"
     date = article.get("pubDate") or "N/A"
 
-    # Trim summary to 200 chars
+    
     short_summary = summary.strip()
     if len(short_summary) > 200:
         short_summary = short_summary[:197] + "..."
 
-    # Extract top keywords
+   
     words = re.findall(r'\w+', summary.lower())
     word_counts = Counter(words)
     top_words = [word.capitalize() for word, _ in word_counts.most_common(5)]
@@ -35,7 +35,7 @@ for article in data.get("results", []):
         ", ".join(top_words)
     ])
 
-# Save to CSV with a clean format
+
 with open('news_output.csv', 'w', newline='', encoding='utf-8') as f:
     writer = csv.writer(f)
     writer.writerow(['News URL', 'Title', 'Summary (Shortened)', 'Published Date', 'Top 5 Keywords'])
