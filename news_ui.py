@@ -1,33 +1,44 @@
-import tkinter as tk
-from tkinter import ttk
-import pandas as pd
+import requests
+import csv
+import re
+from collections import Counter
 
+API_KEY = 'pub_785021193f66176e5970a0321729dcba4ad02'
+url = f"https://newsdata.io/api/1/news?apikey={API_KEY}&language=en&country=in"
 
-df = pd.read_csv("news_output.csv")
+response = requests.get(url)
+data = response.json()
 
+news_data = []
 
-root = tk.Tk()
-root.title("🗞️ News Headlines Viewer")
-root.geometry("900x500")
+for article in data.get("results", []):
+    title = article.get("title") or "N/A"
+    summary = article.get("description") or "N/A"
+    link = article.get("link") or "N/A"
+    date = article.get("pubDate") or "N/A"
 
+    # Trim summary to 200 chars
+    short_summary = summary.strip()
+    if len(short_summary) > 200:
+        short_summary = short_summary[:197] + "..."
 
-tree = ttk.Treeview(root, columns=("Title", "Date", "Summary", "Keywords"), show="headings")
-tree.heading("Title", text="📰 Title")
-tree.heading("Date", text="🕒 Published Date")
-tree.heading("Summary", text="📄 Summary")
-tree.heading("Keywords", text="🔍 Top Keywords")
+    # Extract top keywords
+    words = re.findall(r'\w+', summary.lower())
+    word_counts = Counter(words)
+    top_words = [word.capitalize() for word, _ in word_counts.most_common(5)]
 
+    news_data.append([
+        link.strip(),
+        title.strip().title(),
+        short_summary,
+        date.strip(),
+        ", ".join(top_words)
+    ])
 
-tree.column("Title", width=250)
-tree.column("Date", width=120)
-tree.column("Summary", width=350)
-tree.column("Keywords", width=150)
+# Save to CSV with a clean format
+with open('news_output.csv', 'w', newline='', encoding='utf-8') as f:
+    writer = csv.writer(f)
+    writer.writerow(['News URL', 'Title', 'Summary (Shortened)', 'Published Date', 'Top 5 Keywords'])
+    writer.writerows(news_data)
 
-
-for index, row in df.iterrows():
-    tree.insert("", tk.END, values=(row["Title"], row["Published Date"], row["Summary (Shortened)"], row["Top 5 Keywords"]))
-
-tree.pack(fill=tk.BOTH, expand=True)
-
-
-root.mainloop()
+print(f"✅ Stylish CSV created with {len(news_data)} rows.")
