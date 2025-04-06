@@ -1,3 +1,4 @@
+
 import requests
 import csv
 import re
@@ -41,4 +42,4 @@ with open('news_output.csv', 'w', newline='', encoding='utf-8') as f:
     writer.writerow(['News URL', 'Title', 'Summary (Shortened)', 'Published Date', 'Top 5 Keywords'])
     writer.writerows(news_data)
 
-print(f"✅ Stylish CSV created with {len(news_data)} rows.")
+print(f"✅ CSV created with {len(news_data)} rows.")
