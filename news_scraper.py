@@ -6,11 +6,10 @@ from collections import Counter
 from datetime import datetime
 from nltk.corpus import stopwords
 
-# Download stopwords
+
 nltk.download('stopwords')
 stop_words = set(stopwords.words('english'))
 
-# RSS feeds from top news sources
 rss_feeds = [
     "https://timesofindia.indiatimes.com/rssfeedstopstories.cms",
     "https://www.thehindu.com/news/national/feeder/default.rss",
@@ -30,7 +29,7 @@ for feed_url in rss_feeds:
         pub_date = entry.get("published", entry.get("updated", "N/A"))
         description = entry.get("summary", "N/A")
 
-        # Clean and process description text
+        
         words = re.findall(r'\b[a-z]{4,}\b', description.lower())
         filtered_words = [word for word in words if word not in stop_words]
         word_counts = Counter(filtered_words)
@@ -45,7 +44,7 @@ for feed_url in rss_feeds:
             keywords
         ])
 
-# Save to CSV
+
 csv_filename = f"top_news_output_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv"
 with open(csv_filename, "w", newline='', encoding='utf-8') as f:
     writer = csv.writer(f)
