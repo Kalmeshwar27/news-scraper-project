@@ -1,0 +1,798 @@
+#libraries
+import feedparser
+import re
+import nltk
+from collections import Counter, defaultdict
+from datetime import datetime
+from nltk.corpus import stopwords
+from openpyxl import Workbook
+from openpyxl.styles import Font, PatternFill
+
+# Download stopwords(common words that dont need)
+nltk.download('stopwords')
+stop_words = set(stopwords.words('english'))
+
+# RSS news  Feeds
+rss_feeds = [
+    "https://timesofindia.indiatimes.com/rssfeedstopstories.cms",
+    "https://www.thehindu.com/news/national/feeder/default.rss",
+    "http://feeds.bbci.co.uk/news/rss.xml",
+    "https://rss.cnn.com/rss/edition.rss",
+    "https://www.aljazeera.com/xml/rss/all.xml",
+    "http://feeds.reuters.com/reuters/topNews",
+    "https://www.ndtv.com/rss",
+    "https://www.theguardian.com/world/rss",
+    "https://rss.nytimes.com/services/xml/rss/nyt/HomePage.xml",
+    "https://www.hindustantimes.com/rss/topnews/rssfeed.xml"
+]
+
+all_articles = []
+keyword_to_articles = defaultdict(list)
+
+# Step 1: The code Below  Collect and Clean Articles
+for feed_url in rss_feeds:
+    feed = feedparser.parse(feed_url)
+
+    for entry in feed.entries:
+        title = entry.get("title", "").strip()
+        link = entry.get("link", "").strip()
+        pub_date = entry.get("published", entry.get("updated", "N/A")).strip()
+        raw_description = entry.get("summary", "N/A")
+        clean_description = re.sub(r'<[^>]+>', '', raw_description).strip()
+
+        if not title or not link:
+            continue  #  To skip incomplete articles
+
+        # Extract keywords from cleaned description
+        words = re.findall(r'\b[a-z]{4,}\b', clean_description.lower())#keyword with minimum length>4 chars
+        filtered_words = [word for word in words if word not in stop_words]
+        word_counts = Counter(filtered_words)
+        top_keywords = [word.capitalize() for word, _ in word_counts.most_common(5)]
+
+        article = {
+            "title": title,
+            "description": clean_description,
+            "link": link,
+            "published": pub_date,
+            "keywords": top_keywords,
+            "common_match": "NA"
+        }
+
+        all_articles.append(article)
+        for kw in top_keywords:
+            keyword_to_articles[kw].append(len(all_articles) - 1)
+
+# Step 2: Match Articles Based on Common Keywords
+for i, article in enumerate(all_articles):
+    common_keywords = set()
+    for kw in article["keywords"]:
+        if len(keyword_to_articles[kw]) > 1:
+            common_keywords.add(kw)
+    if common_keywords:
+        article["common_match"] = ", ".join(sorted(common_keywords))
+
+# Step 3: Export to Excel
+wb = Workbook()
+ws = wb.active
+ws.title = "Top News"
+
+# Define headers
+headers = ["Title", "Description", "Link", "Published Date", "Top Keywords", "Common Keyword Match"]
+ws.append(headers)
+
+# Style headers
+header_fill = PatternFill(start_color="ADD8E6", end_color="ADD8E6", fill_type="solid")  # Added Light Blue Colour for Headers
+bold_font = Font(bold=True)
+for col_num, column_title in enumerate(headers, 1):
+    cell = ws.cell(row=1, column=col_num)
+    cell.fill = header_fill
+    cell.font = bold_font
+
+# Fill rows with article data and making the  links clickable
+for i, article in enumerate(all_articles, start=2):  # Start from row 2
+    ws.cell(row=i, column=1, value=article["title"])
+    ws.cell(row=i, column=2, value=article["description"])
+
+    # Add hyperlink for the link column
+    link_cell = ws.cell(row=i, column=3)
+    link_cell.value = "Open Link"
+    link_cell.hyperlink = article["link"]
+    link_cell.style = "Hyperlink"
+
+    ws.cell(row=i, column=4, value=article["published"])
+    ws.cell(row=i, column=5, value=", ".join(article["keywords"]))
+    ws.cell(row=i, column=6, value=article["common_match"])
+
+# This Code Saves Excel file
+excel_filename = f"top_news_{datetime.now().strftime('%Y%m%d_%H%M%S')}.xlsx"
+wb.save(excel_filename)
+
+print(f"✅ Excel created with {len(all_articles)} articles. Saved as '{excel_filename}'")
+
+
+-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+
+Cleanedupd output
+
+import feedparser
+
+rss_feeds = [
+    "https://timesofindia.indiatimes.com/rssfeedstopstories.cms",
+    "https://www.thehindu.com/news/national/feeder/default.rss",
+    "http://feeds.bbci.co.uk/news/rss.xml",
+    "https://rss.cnn.com/rss/edition.rss",
+    "https://www.aljazeera.com/xml/rss/all.xml",
+    "http://feeds.reuters.com/reuters/topNews",
+    "https://www.ndtv.com/rss",
+    "https://www.theguardian.com/world/rss",
+    "https://rss.nytimes.com/services/xml/rss/nyt/HomePage.xml",
+    "https://www.hindustantimes.com/rss/topnews/rssfeed.xml"
+]
+
+print("Checking how many articles are returned from each RSS feed...\n")
+
+for url in rss_feeds:
+    feed = feedparser.parse(url)
+    print(f"{url}\n➡️  Articles found: {len(feed.entries)}\n")
+-----------------------------------------------------------------------------------------------------------------------------------------
+
+
+
+
+
+
+23-04-2025
+
+
+
+
+# Libraries
+import feedparser
+import re
+import nltk
+from collections import Counter, defaultdict
+from datetime import datetime
+from nltk.corpus import stopwords
+from openpyxl import Workbook
+from openpyxl.styles import Font, PatternFill
+from openpyxl.cell.rich_text import TextBlock, CellRichText
+from nltk.tokenize import TreebankWordTokenizer
+from openpyxl.cell.rich_text import TextBlock, CellRichText
+from openpyxl.styles import Font
+
+
+# NLTK downloads
+nltk.download('averaged_perceptron_tagger')
+nltk.download('stopwords')
+
+# Setup
+stop_words = set(stopwords.words('english'))
+tokenizer = TreebankWordTokenizer()
+
+# Extended blacklist
+blacklist = set(stop_words).union({
+    "said", "will", "news", "india", "today", "report", "year", "week", "also", "new", "time",
+    "one", "two", "many", "more", "from", "about", "after", "before", "could", "first", "last",
+    "down", "back", "out", "into", "under", "over", "most", "least", "minister", "government",
+    "officials", "party", "member", "states", "people", "country", "nation", "issue", "media",
+    "world", "video", "audio", "language", "chilli", "pope", "explore", "powder", "left", "right",
+    "every", "month", "daily", "newsroom", "click", "read", "update", "headline", "live"
+})
+
+# RSS Feeds
+rss_feeds = [
+    "https://moxie.foxnews.com/feedburner/latest.xml",
+    "https://abcnews.go.com/abcnews/topstories",
+    "https://feeds.skynews.com/feeds/rss/home.xml",
+    "https://www.aljazeera.com/xml/rss/all.xml",
+    "https://www.theguardian.com/world/rss",
+    "https://rss.nytimes.com/services/xml/rss/nyt/HomePage.xml",
+    "https://www.financialexpress.com/feed/",
+    "https://timesofindia.indiatimes.com/rssfeedstopstories.cms",
+    "https://www.thehindu.com/news/national/feeder/default.rss",
+    "http://feeds.bbci.co.uk/news/rss.xml",
+    "https://www.bloomberg.com/feed/podcast/etf-report.xml",
+    "https://www.cnbc.com/id/100003114/device/rss/rss.html",
+    "https://www.livemint.com/rss/news"
+]
+
+all_articles = []
+keyword_to_articles = defaultdict(list)
+
+# Step 1: Collect and Clean Articles
+for feed_url in rss_feeds:
+    feed = feedparser.parse(feed_url)
+
+    for entry in feed.entries:
+        title = entry.get("title", "").strip()
+        link = entry.get("link", "").strip()
+        pub_date = entry.get("published", entry.get("updated", "N/A")).strip()
+        raw_description = entry.get("summary", "")
+        clean_description = re.sub(r'<[^>]+>', '', raw_description).strip()
+
+        if not title or not link:
+            continue
+
+        combined_text = f"{title} {clean_description}"
+        tokens = tokenizer.tokenize(combined_text)
+        tagged_words = nltk.pos_tag(tokens)
+
+        # Extract nouns and verbs
+        nouns = [word.lower() for word, tag in tagged_words if tag.startswith('NN') and word.lower() not in blacklist]
+        noun_counts = Counter(nouns)
+        top_keywords = [f"{word.capitalize()} [{count}]" for word, count in noun_counts.most_common(5)]
+
+        verbs = [word.lower() for word, tag in tagged_words if tag.startswith('VB') and word.lower() not in blacklist]
+        verb_counts = Counter(verbs)
+
+        top_noun = noun_counts.most_common(1)[0][0] if noun_counts else "General"
+        top_verb_summary = ", ".join(f"{v} ({c})" for v, c in verb_counts.most_common(3)) if verb_counts else "None"
+        topic_with_verbs = f"{top_noun.capitalize()}: {top_verb_summary}"
+
+        article = {
+            "title": title,
+            "description": clean_description,
+            "link": link,
+            "published": pub_date,
+            "keywords": top_keywords if top_keywords else ["General"],
+            "topic_verbs": topic_with_verbs
+        }
+
+        all_articles.append(article)
+
+        for kw in top_keywords:
+            keyword_clean = re.sub(r'\s*\[\d+\]', '', kw)
+            keyword_to_articles[keyword_clean].append(len(all_articles) - 1)
+
+# Step 2: Match Articles Based on Common Keywords
+for i, article in enumerate(all_articles):
+    common_keywords = set()
+    for kw in article["keywords"]:
+        keyword_clean = re.sub(r'\s*\[\d+\]', '', kw)
+        if len(keyword_to_articles[keyword_clean]) > 1:
+            common_keywords.add(keyword_clean)
+    if common_keywords:
+        article["common_match"] = ", ".join(sorted(common_keywords))
+
+# Step 3: Export to Excel
+wb = Workbook()
+ws = wb.active
+ws.title = "Top News"
+
+headers = ["News Website URL", "Title", "Header", "Date of Article", "Top Keywords", "Topic + verbs"]
+ws.append(headers)
+
+# Style headers
+header_fill = PatternFill(start_color="ADD8E6", end_color="ADD8E6", fill_type="solid")
+bold_font = Font(bold=True)
+for col_num, column_title in enumerate(headers, 1):
+    cell = ws.cell(row=1, column=col_num)
+    cell.fill = header_fill
+    cell.font = bold_font
+
+# Write article rows
+# Step 3: Export to Excel (adjusted)
+for i, article in enumerate(all_articles, start=2):
+    ws.cell(row=i, column=1, value=article["link"])
+    ws.cell(row=i, column=2, value=article["title"])
+    ws.cell(row=i, column=3, value=article["description"])
+    ws.cell(row=i, column=4, value=article["published"])
+    ws.cell(row=i, column=5, value=", ".join(article["keywords"]))
+
+    # Bold the noun in topic + verbs column
+    if ": " in article["topic_verbs"]:
+        topic, verbs = article["topic_verbs"].split(": ", 1)
+        cell = ws.cell(row=i, column=6)
+        cell.value = topic + ": " + verbs  # Set the full text
+
+        # Apply bold font to the noun (topic)
+        cell.font = Font(bold=True)
+    else:
+        ws.cell(row=i, column=6, value=article["topic_verbs"])
+
+# Save Excel
+excel_filename = f"top_news_verbs_{datetime.now().strftime('%Y%m%d_%H%M%S')}.xlsx"
+wb.save(excel_filename)
+
+print(f"✅ Excel created with topic+verb analysis. Saved as '{excel_filename}'")
+
+
+
+
+----------------------------------------------------------------------------------------------------------------------------------------------------------------
+
+
+29-04-2025
+
+
+
+import feedparser
+import re    # To remove unwanted HTML tags using regex.
+import nltk     # Natural Language Toolkit (to analyze text, find nouns/verbs).
+from collections import Counter, defaultdict
+from datetime import datetime
+from nltk.corpus import stopwords
+from nltk import pos_tag, word_tokenize
+from nltk.data import load
+from openpyxl import Workbook
+from openpyxl.styles import Font, PatternFill
+
+# NLTK Downloads
+nltk.download('punkt')    # Needed for tokenizing sentences/words.
+nltk.download('averaged_perceptron_tagger')  # Needed for Part-of-Speech tagging (find nouns, verbs)
+nltk.download('stopwords')
+
+# Setup
+stop_words = set(stopwords.words('english'))
+blacklist = set(stop_words).union({
+    "said", "will", "news", "india", "today", "report", "year", "week", "also", "new", "time",
+    "one", "two", "many", "more", "from", "about", "after", "before", "could", "first", "last",
+    "down", "back", "out", "into", "under", "over", "most", "least", "minister", "government",
+    "officials", "party", "member", "states", "people", "country", "nation", "issue", "media",
+    "world", "video", "audio", "language", "chilli", "pope", "explore", "powder", "left", "right",
+    "every", "month", "daily", "newsroom", "click", "read", "update", "headline", "live"
+})
+
+# RSS Feeds
+rss_feeds = [
+    "https://www.bloomberg.com/feed/podcast/etf-report.xml",
+    "https://www.bloomberg.com/feed/podcast/surveillance.xml",
+    "https://www.bloomberg.com/feed/podcast/daybreak.xml",
+    "https://www.france24.com/en/rss",
+    "http://feeds.bbci.co.uk/news/rss.xml",
+    "https://www.france24.com/en/rss", 
+    "https://moxie.foxnews.com/feedburner/latest.xml",
+    "https://abcnews.go.com/abcnews/topstories",
+    "https://feeds.skynews.com/feeds/rss/home.xml",
+    "https://www.aljazeera.com/xml/rss/all.xml",
+    "https://www.theguardian.com/world/rss",
+    "https://rss.nytimes.com/services/xml/rss/nyt/HomePage.xml",
+    "https://www.financialexpress.com/feed/",
+    "https://timesofindia.indiatimes.com/rssfeedstopstories.cms",
+    "https://www.thehindu.com/news/national/feeder/default.rss",
+    "http://feeds.bbci.co.uk/news/rss.xml",
+    "https://www.bloomberg.com/feed/podcast/etf-report.xml",
+    "https://www.cnbc.com/id/100003114/device/rss/rss.html",
+    "https://www.livemint.com/rss/news"
+]
+
+all_articles = []  # A list where each article’s data will be stored.
+keyword_to_articles = defaultdict(list)
+
+# Step 1: Collect and Clean Articles
+for feed_url in rss_feeds:      # Loops through each RSS feed URL. 
+    feed = feedparser.parse(feed_url)        # Extract important fields
+
+    for entry in feed.entries:
+        title = entry.get("title", "").strip()
+        link = entry.get("link", "").strip()
+        pub_date = entry.get("published", entry.get("updated", "N/A")).strip()
+        raw_description = entry.get("summary", "")
+        clean_description = re.sub(r'<[^>]+>', '', raw_description).strip()
+
+        if not title or not link:
+            continue
+
+        combined_text = f"{title}. {clean_description}"
+        tokens = word_tokenize(combined_text)     #  Tags each word with its part-of-speech: (noun, verb, adjective, etc.)
+        tagged_words = pos_tag(tokens)
+
+        # Extract nouns  Tag starts with NN (noun). Word length > 3. Not in blacklist.
+        nouns = [
+            word.lower() for word, tag in tagged_words
+            if tag.startswith('NN') and word.isalpha() and len(word) > 3 and word.lower() not in blacklist
+        ]
+        noun_counts = Counter(nouns)        # Counts frequency of each noun.
+        top_keywords = [f"{word.capitalize()} [{count}]" for word, count in noun_counts.most_common(5)]
+
+        # Extract verbs    Tag starts with VB (verb).
+        verbs = [ 
+            word.lower() for word, tag in tagged_words
+            if tag.startswith('VB') and word.isalpha() and word.lower() not in blacklist
+        ]
+        verb_counts = Counter(verbs)
+
+        top_noun = noun_counts.most_common(1)[0][0] if noun_counts else "General"
+        top_verb_summary = ", ".join(f"{v} ({c})" for v, c in verb_counts.most_common(3)) if verb_counts else "None"
+        topic_with_verbs = f"{top_noun.capitalize()}: {top_verb_summary}"
+
+        highlight = "✅ Good for Game" if len(noun_counts) >= 3 and len(verb_counts) >= 1 else ""
+       #  Creates a dictionary for each article and stores it inside all_articles
+        article = { 
+            "title": title,
+            "description": clean_description,
+            "link": link,
+            "published": pub_date,
+            "keywords": top_keywords if top_keywords else ["General"],
+            "topic_verbs": topic_with_verbs
+        }
+
+        all_articles.append(article)
+
+        for kw in top_keywords:
+            keyword_clean = re.sub(r'\s*\[\d+\]', '', kw)
+            keyword_to_articles[keyword_clean].append(len(all_articles) - 1)
+
+# Step 2: Match Articles Based on Common Keywords
+for i, article in enumerate(all_articles):          # Finds common keywords between different articles.
+    common_keywords = set()
+    for kw in article["keywords"]:
+        keyword_clean = re.sub(r'\s*\[\d+\]', '', kw)
+        if len(keyword_to_articles[keyword_clean]) > 1:
+            common_keywords.add(keyword_clean)
+    article["common_match"] = ", ".join(sorted(common_keywords)) if common_keywords else ""
+
+# Step 3: Export to Excel
+wb = Workbook()
+ws = wb.active
+ws.title = "Top News"
+
+headers = [
+    "News Website URL", "Title", "Header", "Date of Article",
+    "Top Keywords", "Topic + verbs", "Common Keywords"
+]
+ws.append(headers)
+
+# Style headers
+header_fill = PatternFill(start_color="ADD8E6", end_color="ADD8E6", fill_type="solid")
+bold_font = Font(bold=True)
+for col_num, column_title in enumerate(headers, 1):
+    cell = ws.cell(row=1, column=col_num)
+    cell.fill = header_fill
+    cell.font = bold_font
+
+# Write article rows
+for i, article in enumerate(all_articles, start=2):
+    ws.cell(row=i, column=1, value=article["link"])
+    ws.cell(row=i, column=2, value=article["title"])
+    ws.cell(row=i, column=3, value=article["description"])
+    ws.cell(row=i, column=4, value=article["published"])
+    ws.cell(row=i, column=5, value=", ".join(article["keywords"]))
+    ws.cell(row=i, column=6, value=article["topic_verbs"])
+    ws.cell(row=i, column=7, value=article["common_match"])
+    # ws.cell(row=i, column=8, value=article["highlight"])
+
+# Save Excel
+excel_filename = f"top_news_game_improved_{datetime.now().strftime('%Y%m%d_%H%M%S')}.xlsx"
+wb.save(excel_filename)
+
+print(f"✅ Excel created successfully: '{excel_filename}'")
+
+----------------------------------------------------------------------------------------------------------------------------------------------------------
+
+30-04-25
+
+
+# ==== Import Libraries ====
+import feedparser                         # For reading RSS feed content
+import re                                 # For removing HTML tags from descriptions
+import nltk                               # NLP toolkit to extract nouns/verbs
+from collections import Counter, defaultdict  # For counting and grouping data
+from datetime import datetime             # For timestamping output file
+from nltk.corpus import stopwords         # List of English stopwords
+from nltk import pos_tag, word_tokenize   # Part-of-speech tagging & tokenizing
+from openpyxl import Workbook             # For creating Excel files
+from openpyxl.styles import Font, PatternFill  # To style Excel header cells
+from textblob import TextBlob             # For sentiment analysis
+
+# ==== NLTK Downloads ====
+nltk.download('punkt')                    # Word tokenizer
+nltk.download('averaged_perceptron_tagger')  # POS tagger for noun/verb classification
+nltk.download('stopwords')                # Common words to ignore (like "the", "and", "is")
+
+# ==== Define Stopwords and Blacklist ====
+stop_words = set(stopwords.words('english'))
+blacklist = set(stop_words).union({       # Custom list of useless or irrelevant words
+    "said", "will", "news", "india", "today", "report", "year", "week", "also", "new", "time",
+    "one", "two", "many", "more", "from", "about", "after", "before", "could", "first", "last",
+    "down", "back", "out", "into", "under", "over", "most", "least", "minister", "government",
+    "officials", "party", "member", "states", "people", "country", "nation", "issue", "media",
+    "world", "video", "audio", "language", "chilli", "pope", "explore", "powder", "left", "right",
+    "every", "month", "daily", "newsroom", "click", "read", "update", "headline", "live"
+})
+
+# ==== RSS Feeds from Global News Sources ====
+rss_feeds = [
+    "https://www.bloomberg.com/feed/podcast/etf-report.xml",
+    "https://www.france24.com/en/rss",
+    "http://feeds.bbci.co.uk/news/rss.xml",
+    "https://moxie.foxnews.com/feedburner/latest.xml",
+    "https://abcnews.go.com/abcnews/topstories",
+    "https://feeds.skynews.com/feeds/rss/home.xml",
+    "https://www.aljazeera.com/xml/rss/all.xml",
+    "https://www.theguardian.com/world/rss",
+    "https://rss.nytimes.com/services/xml/rss/nyt/HomePage.xml",
+    "https://www.financialexpress.com/feed/",
+    "https://timesofindia.indiatimes.com/rssfeedstopstories.cms",
+    "https://www.thehindu.com/news/national/feeder/default.rss",
+    "https://www.cnbc.com/id/100003114/device/rss/rss.html",
+    "https://www.livemint.com/rss/news"
+]
+
+# ==== Keyword Clusters to Assign Categories ====
+category_keywords = {
+    "Business": {"market", "stocks", "investor", "investment", "trade", "finance", "economy"},
+    "Politics": {"election", "president", "policy", "minister", "government", "parliament"},
+    "Sports": {"match", "tournament", "player", "goal", "score", "team", "cricket", "football"},
+    "Technology": {"ai", "tech", "robot", "software", "hardware", "startup", "gadget"},
+    "Climate": {"weather", "climate", "heat", "rain", "storm", "hurricane", "pollution"}
+}
+
+# ==== Function to Assign Category Based on Keywords ====
+def assign_category(nouns):
+    for category, keywords in category_keywords.items():
+        if any(noun in keywords for noun in nouns):
+            return category
+    return "General"  # Default if no match
+
+# ==== Containers ====
+all_articles = []  # Final list of news items
+keyword_to_articles = defaultdict(list)  # To match common keywords across articles
+
+# ==== Step 1: Read and Process Each RSS Feed ====
+for feed_url in rss_feeds:
+    feed = feedparser.parse(feed_url)  # Parse the RSS XML data
+
+    for entry in feed.entries:
+        title = entry.get("title", "").strip()
+        link = entry.get("link", "").strip()
+        pub_date = entry.get("published", entry.get("updated", "N/A")).strip()
+        raw_description = entry.get("summary", "")
+        clean_description = re.sub(r'<[^>]+>', '', raw_description).strip()  # Remove HTML tags
+
+        if not title or not link:
+            continue  # Skip if incomplete
+
+        # Combine title and description for analysis
+        combined_text = f"{title}. {clean_description}"
+        tokens = word_tokenize(combined_text)
+        tagged_words = pos_tag(tokens)  # Get part-of-speech tags
+
+        # ==== Extract Trending Nouns ====
+        nouns = [
+            word.lower() for word, tag in tagged_words
+            if tag.startswith('NN') and word.isalpha() and len(word) > 3 and word.lower() not in blacklist
+        ]
+        noun_counts = Counter(nouns)
+        top_keywords = [f"{word.capitalize()} [{count}]" for word, count in noun_counts.most_common(5)]
+
+        # ==== Extract Verbs (Actions) ====
+        verbs = [
+            word.lower() for word, tag in tagged_words
+            if tag.startswith('VB') and word.isalpha() and word.lower() not in blacklist
+        ]
+        verb_counts = Counter(verbs)
+
+        # ==== Create Topic Summary ====
+        top_noun = noun_counts.most_common(1)[0][0] if noun_counts else "General"
+        top_verb_summary = ", ".join(f"{v} ({c})" for v, c in verb_counts.most_common(3)) if verb_counts else "None"
+        topic_with_verbs = f"{top_noun.capitalize()}: {top_verb_summary}"
+
+        # ==== Sentiment Analysis ====
+        blob = TextBlob(combined_text)        #TextBlob (built on NLP) to analyze the combined title + description of the article.
+        polarity = blob.sentiment.polarity    #TextBlob gives a sentiment polarity score:
+        sentiment = (
+            "Positive" if polarity > 0.1 else
+            "Negative" if polarity < -0.1 else
+            "Neutral"
+        )
+
+        # ==== Assign Category ====
+        category = assign_category(nouns)
+
+        # ==== Store Final Article ====
+        article = {
+            "title": title,
+            "description": clean_description,
+            "link": link,
+            "published": pub_date,
+            "keywords": top_keywords if top_keywords else ["General"],
+            "topic_verbs": topic_with_verbs,
+            "sentiment": sentiment,
+            "category": category
+        }
+
+        all_articles.append(article)
+
+        # ==== For Keyword Matching ====    To track which articles contain which top keywords so we can later identify common keywords shared across multiple articles.
+        for kw in top_keywords:             #Loops through the top keywords of the current article
+            keyword_clean = re.sub(r'\s*\[\d+\]', '', kw)           #Cleans each keyword by removing the frequency count
+            keyword_to_articles[keyword_clean].append(len(all_articles) - 1)         #Adds the article's index to a dictionary (keyword_to_articles) under the cleaned keyword.
+
+# ==== Step 2: Match Common Keywords Between Articles ====
+for i, article in enumerate(all_articles):   #This loop goes through each article in the all_articles list.
+    common_keywords = set()                 #Initializes an empty set to store keywords that appear in more than one article.
+    for kw in article["keywords"]:
+        keyword_clean = re.sub(r'\s*\[\d+\]', '', kw)
+        if len(keyword_to_articles[keyword_clean]) > 1:      #If the keyword appears in more than one article, it is considered "common"
+            common_keywords.add(keyword_clean)
+    article["common_match"] = ", ".join(sorted(common_keywords)) if common_keywords else ""
+
+# ==== Step 3: Export All to Excel ====
+wb = Workbook()
+ws = wb.active
+ws.title = "News Summary"
+
+# Header row
+headers = [
+    "News Website URL", "Title", "Header", "Date of Article",
+    "Top Keywords", "Topic + Verbs", "Category", "Sentiment", "Common Keywords"
+]
+ws.append(headers)
+
+# Style headers
+header_fill = PatternFill(start_color="ADD8E6", end_color="ADD8E6", fill_type="solid")
+bold_font = Font(bold=True)
+for col_num, column_title in enumerate(headers, 1):
+    cell = ws.cell(row=1, column=col_num)
+    cell.fill = header_fill
+    cell.font = bold_font
+
+# Fill content rows
+for i, article in enumerate(all_articles, start=2):
+    ws.cell(row=i, column=1, value=article["link"])
+    ws.cell(row=i, column=2, value=article["title"])
+    ws.cell(row=i, column=3, value=article["description"])
+    ws.cell(row=i, column=4, value=article["published"])
+    ws.cell(row=i, column=5, value=", ".join(article["keywords"]))
+    ws.cell(row=i, column=6, value=article["topic_verbs"])
+    ws.cell(row=i, column=7, value=article["category"])
+    ws.cell(row=i, column=8, value=article["sentiment"])
+    ws.cell(row=i, column=9, value=article["common_match"])
+
+# Save Excel File
+excel_filename = f"enhanced_news_summary_{datetime.now().strftime('%Y%m%d_%H%M%S')}.xlsx"
+wb.save(excel_filename)
+print(f"✅ Excel created with sentiment + category: '{excel_filename}'")  
+
+
+
+-------------------------------------------------------------------------------------------------------------------------------------------------
+
+
+par 2
+
+30-04-25
+
+
+import feedparser  # For reading RSS feed content
+import re  # For removing HTML tags from descriptions
+import nltk  # NLP toolkit for extracting nouns/verbs
+from collections import Counter, defaultdict  # For counting and grouping data
+from datetime import datetime  # For timestamping output file
+from nltk.corpus import stopwords  # List of English stopwords
+from nltk import pos_tag, word_tokenize  # Part-of-speech tagging & tokenizing
+from spacy import load  # For Named Entity Recognition (NER)
+import csv  # For exporting to CSV
+
+# ==== NLTK Downloads ====
+nltk.download('punkt')  # Word tokenizer
+nltk.download('averaged_perceptron_tagger')  # POS tagger for noun/verb classification
+nltk.download('stopwords')  # Common words to ignore (like "the", "and", "is")
+
+# ==== Load SpaCy Model for NER ====
+nlp = load("en_core_web_sm")  # Load the small English model for Named Entity Recognition
+
+# ==== Define Stopwords and Blacklist ====
+stop_words = set(stopwords.words('english'))  # Load the standard stopwords list
+blacklist = set(stop_words).union({  # Custom list of irrelevant words
+    "said", "will", "news", "india", "today", "report", "year", "week", "also", "new", "time",
+    "one", "two", "many", "more", "from", "about", "after", "before", "could", "first", "last",
+    "down", "back", "out", "into", "under", "over", "most", "least", "minister", "government",
+    "officials", "party", "member", "states", "people", "country", "nation", "issue", "media",
+    "world", "video", "audio", "language", "chilli", "pope", "explore", "powder", "left", "right",
+    "every", "month", "daily", "newsroom", "click", "read", "update", "headline", "live"
+})
+
+# ==== RSS Feeds from Global News Sources ====
+rss_feeds = [
+    "https://www.bloomberg.com/feed/podcast/etf-report.xml",
+    "https://www.france24.com/en/rss",
+    "http://feeds.bbci.co.uk/news/rss.xml",
+    "https://moxie.foxnews.com/feedburner/latest.xml",
+    "https://abcnews.go.com/abcnews/topstories",
+    "https://feeds.skynews.com/feeds/rss/home.xml",
+    "https://www.aljazeera.com/xml/rss/all.xml",
+    "https://www.theguardian.com/world/rss",
+    "https://rss.nytimes.com/services/xml/rss/nyt/HomePage.xml",
+    "https://www.financialexpress.com/feed/",
+    "https://timesofindia.indiatimes.com/rssfeedstopstories.cms",
+    "https://www.thehindu.com/news/national/feeder/default.rss",
+    "https://www.cnbc.com/id/100003114/device/rss/rss.html",
+    "https://www.livemint.com/rss/news"
+]
+
+# ==== Function to Assign Category Based on Keywords ====
+def assign_category(nouns):
+    category_keywords = {
+        "Business": {"market", "stocks", "investor", "investment", "trade", "finance", "economy"},
+        "Politics": {"election", "president", "policy", "minister", "government", "parliament"},
+        "Sports": {"match", "tournament", "player", "goal", "score", "team", "cricket", "football"},
+        "Technology": {"ai", "tech", "robot", "software", "hardware", "startup", "gadget"},
+        "Climate": {"weather", "climate", "heat", "rain", "storm", "hurricane", "pollution"}
+    }
+    # Iterate through the predefined categories and check if any noun matches the keywords
+    for category, keywords in category_keywords.items():
+        if any(noun in keywords for noun in nouns):  # If a keyword is found, assign category
+            return category
+    return "General"  # Default category if no match
+
+# ==== Containers for Storing Articles ====
+all_articles = []  # Final list of all articles processed
+
+# ==== Step 1: Read and Process Each RSS Feed ====
+for feed_url in rss_feeds:
+    feed = feedparser.parse(feed_url)  # Parse the RSS XML data from the feed URL
+
+    for entry in feed.entries:
+        # Extract title, link, and publication date from each RSS entry
+        title = entry.get("title", "").strip()
+        link = entry.get("link", "").strip()
+        pub_date = entry.get("published", entry.get("updated", "N/A")).strip()
+        raw_description = entry.get("summary", "")  # Description of the article (HTML content)
+
+        clean_description = re.sub(r'<[^>]+>', '', raw_description).strip()  # Remove HTML tags from description
+
+        if not title or not link:  # Skip articles with missing title or link
+            continue
+
+        # Combine the title and description for analysis
+        combined_text = f"{title}. {clean_description}"
+        tokens = word_tokenize(combined_text)  # Tokenize the text into individual words
+        tagged_words = pos_tag(tokens)  # Get part-of-speech tags for words (nouns, verbs, etc.)
+
+        # ==== Extract Nouns and Verbs ====
+        nouns = [
+            word.lower() for word, tag in tagged_words
+            if tag.startswith('NN') and word.isalpha() and len(word) > 3 and word.lower() not in blacklist
+        ]
+        verbs = [
+            word.lower() for word, tag in tagged_words
+            if tag.startswith('VB') and word.isalpha() and len(word) > 3 and word.lower() not in blacklist
+        ]
+        noun_verb_combined = nouns + verbs
+        noun_verb_string = ", ".join(sorted(set(noun_verb_combined)))
+
+        # ==== Extract Trending Nouns (Top Keywords) ====
+        noun_counts = Counter(nouns)  # Count occurrences of each noun
+        top_keywords = [f"{word.capitalize()} [{count}]" for word, count in noun_counts.most_common(5)]  # Get top 5 keywords
+
+        # ==== Named Entity Recognition (NER) ====
+        doc = nlp(combined_text)  # Use SpaCy's NER model to extract named entities
+        entities = [ent.text for ent in doc.ents]  # Get a list of entities (people, organizations, locations)
+
+        # ==== Assign Category Based on Keywords ====
+        category = assign_category(nouns)  # Determine the category based on nouns in the article
+
+        # ==== Store Article Details ====
+        article = {
+            "title": title,
+            "description": clean_description,
+            "link": link,
+            "published": pub_date,
+            "keywords": top_keywords if top_keywords else ["General"],  # Top keywords from the article
+            "entities": entities,  # Extracted named entities
+            "category": category,  # Category assigned based on content
+            "noun_verbs": noun_verb_string  # Combined list of nouns and verbs
+        }
+
+        all_articles.append(article)  # Append article to the final list
+
+# ==== Step 2: Export to CSV ====
+output_file = f"articles_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv"
+with open(output_file, mode='w', newline='', encoding='utf-8') as file:
+    writer = csv.DictWriter(file, fieldnames=["title", "description", "link", "published", "keywords", "entities", "category", "noun_verbs"])
+    writer.writeheader()
+    for article in all_articles:
+        writer.writerow({
+            "title": article["title"],
+            "description": article["description"],
+            "link": article["link"],
+            "published": article["published"],
+            "keywords": "; ".join(article["keywords"]),
+            "entities": "; ".join(article["entities"]),
+            "category": article["category"],
+            "noun_verbs": article["noun_verbs"]
+        })
+
+print(f"✅ CSV created successfully: {output_file}")
